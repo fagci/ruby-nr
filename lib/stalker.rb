@@ -7,11 +7,12 @@ class Stalker
   end
 
   # TODO: doc + get services from source
-  {
+  services = {
     http: 80,
     ftp: 21,
     ssh: 22
-  }.each do |svc, port|
+  }
+  services.each do |svc, port|
     define_method(svc) do |&block|
       work(port, &block)
     end
@@ -19,10 +20,10 @@ class Stalker
 
   def work(port)
     workers = (1..@workers_count).map do
-      Thread.new do
+      ::Thread.new do
         loop do
           ip = Gen.gen_ip
-          s = Socket.tcp(ip, 80, connect_timeout: @connect_timeout)
+          s = ::Socket.tcp(ip, 80, connect_timeout: @connect_timeout)
           yield(ip, port, s)
           s.close
         rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
