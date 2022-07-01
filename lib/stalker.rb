@@ -1,5 +1,6 @@
 require './lib/gen'
 
+# Netstalking tool
 class Stalker
   def initialize(options = {})
     @connect_timeout = options.fetch(:connect_timeout, 0.75)
@@ -20,17 +21,19 @@ class Stalker
 
   def work(port)
     workers = (1..@workers_count).map do
-      ::Thread.new do
-        loop do
-          ip = Gen.gen_ip
-          s = ::Socket.tcp(ip, 80, connect_timeout: @connect_timeout)
-          yield(ip, port, s)
-          s.close
-        rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
-          next
-        end
-      end
+      ::Thread.new { worker port }
     end
     workers.map(&:join)
+  end
+
+  def worker(port)
+    loop do
+      ip = Gen.gen_ip
+      s = ::Socket.tcp(ip, port, connect_timeout: @connect_timeout)
+      yield(ip, port, s)
+      s.close
+    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
+      next
+    end
   end
 end
