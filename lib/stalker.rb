@@ -19,9 +19,9 @@ class Stalker
     end
   end
 
-  def work(port)
+  def work(port, &block)
     workers = (1..@workers_count).map do
-      ::Thread.new { worker port }
+      ::Thread.new { worker port, &block }
     end
     workers.map(&:join)
   end

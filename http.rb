@@ -3,7 +3,7 @@
 require 'socket'
 require './lib/stalker'
 
-TPL = DATA.lines.map(&:chomp).join("\r\n")
+TPL = DATA.each_line.map(&:chomp).join("\r\n")
 
 Stalker.new(workers: 512).http do |ip, port, socket|
   socket.print(TPL % ip + "\r\n" * 2)
