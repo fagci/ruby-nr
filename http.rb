@@ -4,7 +4,7 @@ require 'socket'
 require './lib/stalker'
 
 TPL = (DATA.each_line.map(&:chomp).join("\r\n") + "\r\n" * 2).freeze
-TITLE_R = /(?<=\<title\>)([^<]+)/i.freeze
+TITLE_R = /(?<=\<title\>)[^<]+/i.freeze
 
 Stalker.new(workers: 256, connect_timeout: 0.33).http do |ip, _port, socket|
   socket.print(TPL % ip)

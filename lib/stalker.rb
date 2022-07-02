@@ -3,6 +3,13 @@ require './lib/gen'
 
 # Netstalking tool
 class Stalker
+  # TODO: doc + get services from source
+  SERVICES = {
+    http: 80,
+    ftp: 21,
+    ssh: 22
+  }.freeze
+
   def initialize(options = {})
     @connect_timeout = options.fetch(:connect_timeout, 0.75)
     @workers_count = options.fetch(:workers, 64)
@@ -11,13 +18,7 @@ class Stalker
     puts "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}"
   end
 
-  # TODO: doc + get services from source
-  services = {
-    http: 80,
-    ftp: 21,
-    ssh: 22
-  }
-  services.each do |svc, port|
+  SERVICES.each do |svc, port|
     define_method(svc) do |&block|
       @proc_count.times do
         Process.fork do
@@ -25,13 +26,11 @@ class Stalker
             ::Thread.new { worker port, &block }
           end
           workers.map(&:join)
-        rescue Interrupt => e
-          # puts "Exiting..."
+        rescue Interrupt
         end
       end
       Process.waitall
-    rescue Interrupt => e
-      # puts "Exiting..."
+    rescue Interrupt
     end
   end
 
@@ -41,7 +40,7 @@ class Stalker
       s = ::Socket.tcp(ip, port, connect_timeout: @connect_timeout)
       yield(ip, port, s)
       s.close
-      rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
+    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
       next
     end
   end
