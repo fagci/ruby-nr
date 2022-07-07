@@ -42,6 +42,8 @@ class Stalker
       s.close
     rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
       next
+      rescue Errno::ENOPROTOOPT => e
+      puts "#{ip}: #{e}"
     end
   end
 end
