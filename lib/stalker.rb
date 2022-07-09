@@ -1,4 +1,5 @@
 require 'etc'
+require 'socket'
 require './lib/gen'
 
 # Netstalking tool
@@ -15,34 +16,43 @@ class Stalker
     @workers_count = options.fetch(:workers, 64)
     @proc_count = Etc.nprocessors
     @thr_per_proc = @workers_count / @proc_count
-    puts "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}"
+    warn "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}"
+    @mutex = Mutex.new
+  end
+
+  def lock(&block)
+    @mutex.synchronize(&block)
   end
 
   SERVICES.each do |svc, port|
     define_method(svc) do |&block|
-      @proc_count.times do
-        Process.fork do
-          workers = (1..@thr_per_proc).map do
-            ::Thread.new { worker port, &block }
-          end
-          workers.map(&:join)
-        rescue Interrupt
-        end
-      end
-      Process.waitall
-    rescue Interrupt
+      work(port, &block)
     end
   end
 
-  def worker(port)
+  def work(port, &block)
+    @proc_count.times do
+      Process.fork do
+        workers = (1..@thr_per_proc).map do
+          Thread.new { worker port, &block }
+        end
+        workers.map(&:join)
+      rescue Interrupt
+      end
+    end
+    Process.waitall
+  rescue Interrupt
+  end
+
+  def worker(port, &block)
     loop do
       ip = Gen.gen_ip
-      s = ::Socket.tcp(ip, port, connect_timeout: @connect_timeout)
-      yield(ip, port, s)
+      s = Socket.tcp(ip, port, connect_timeout: @connect_timeout)
+      instance_exec ip, port, s, &block
       s.close
     rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
       next
-      rescue Errno::ENOPROTOOPT => e
+    rescue Errno::ENOPROTOOPT => e
       puts "#{ip}: #{e}"
     end
   end

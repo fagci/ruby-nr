@@ -9,7 +9,9 @@ TITLE_R = /(?<=\<title\>)[^<]+/i.freeze
 Stalker.new(workers: 256, connect_timeout: 0.33).http do |ip, _port, socket|
   socket << TPL % ip
   title = socket.read.match(TITLE_R).to_s.strip
-  puts "#{ip} #{title}" unless title.empty?
+  lock do
+    puts "#{ip} #{title}" unless title.empty?
+  end
 end
 
 __END__
