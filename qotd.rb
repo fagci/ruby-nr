@@ -1,12 +1,13 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
-require './lib/stalker'
+require_relative 'lib/stalker'
 
 stalker = Stalker.new(workers: 512)
 
 stalker.work(17) do |ip, _, s|
   qotd = []
-  while line = s.gets
+  while (line = s.gets)
     qotd << line.chomp
   end
   next if qotd.empty?

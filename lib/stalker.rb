@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'etc'
 require 'socket'
-require './lib/gen'
+require_relative 'gen'
 
 # Netstalking tool
 class Stalker
@@ -38,10 +40,12 @@ class Stalker
         end
         workers.map(&:join)
       rescue Interrupt
+        workers.map(&:exit)
       end
     end
     Process.waitall
   rescue Interrupt
+    warn 'Exiting'
   end
 
   def worker(port, &block)

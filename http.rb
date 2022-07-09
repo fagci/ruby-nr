@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require 'socket'
-require './lib/stalker'
+require_relative 'lib/stalker'
 
 TPL = (DATA.each_line.map(&:chomp).join("\r\n") + "\r\n" * 2).freeze
 TITLE_R = /(?<=\<title\>)[^<]+/i.freeze
