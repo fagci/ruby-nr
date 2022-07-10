@@ -13,9 +13,9 @@ class Stalker
     ssh: 22
   }.freeze
 
-  def initialize(options = {})
-    @connect_timeout = options.fetch(:connect_timeout, 0.75)
-    @workers_count = options.fetch(:workers, 64)
+  def initialize(connect_timeout: 0.75, workers: 64)
+    @connect_timeout = connect_timeout
+    @workers_count = workers
     @proc_count = Etc.nprocessors
     @thr_per_proc = @workers_count / @proc_count
     warn "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}"
