@@ -26,6 +26,8 @@ class Stalker
     @mutex.synchronize(&block)
   end
 
+  alias sync lock
+
   SERVICES.each do |svc, port|
     define_method(svc) do |&block|
       work(port, &block)

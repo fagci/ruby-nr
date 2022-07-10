@@ -14,7 +14,7 @@ stalker.work(NNTP_PORT) do |ip, _, s|
   code, = greeting.split.first
   next unless code == '200'
 
-  lock do
+  sync do
     puts "#{ip}: #{greeting}"
     s.puts "LIST"
     puts s.gets
