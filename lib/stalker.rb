@@ -51,9 +51,9 @@ class Stalker
   def worker(port, &block)
     loop do
       ip = Gen.gen_ip
-      s = Socket.tcp(ip, port, connect_timeout: @connect_timeout)
-      instance_exec ip, port, s, &block
-      s.close
+      Socket.tcp(ip, port, connect_timeout: @connect_timeout) do |s|
+        instance_exec ip, port, s, &block
+      end
     rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
       next
     rescue Errno::ENOPROTOOPT => e
