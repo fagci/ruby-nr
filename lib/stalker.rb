@@ -48,6 +48,8 @@ class Stalker
     warn 'Exiting'
   end
 
+  private
+
   def worker(port, &block)
     loop do
       ip = Gen.gen_ip
