@@ -3,9 +3,11 @@
 
 require_relative 'lib/stalker'
 
+QOTD_PORT = 17
+
 stalker = Stalker.new(workers: 512)
 
-stalker.work(17) do |ip, _, s|
+stalker.work(QOTD_PORT) do |ip, _, s|
   qotd = []
   while (line = s.gets)
     qotd << line.chomp

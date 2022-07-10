@@ -57,7 +57,7 @@ class Stalker
     rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
       next
     rescue Errno::ENOPROTOOPT => e
-      puts "#{ip}: #{e}"
+      warn "E: #{ip}: #{e}"
     end
   end
 end

@@ -3,9 +3,11 @@
 
 require_relative 'lib/stalker'
 
+NNTP_PORT = 119
+
 stalker = Stalker.new(workers: 512)
 
-stalker.work(119) do |ip, _, s|
+stalker.work(NNTP_PORT) do |ip, _, s|
   greeting = s.gets&.chomp.to_s
   next if greeting.empty?
 
