@@ -21,13 +21,18 @@ class Stalker
     warn "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}, ct: #{@connect_timeout}"
     @mutex = Mutex.new
 
-    if args.size == 1
-      port_svc = args[0]
-      raise 'No block given' unless block_given?
-      work(port_svc, &block) if port_svc.is_a? Numeric and block_given?
-      send(port_svc.to_sym, &block) if port_svc.is_a? String and block_given?
-      raise 'Bad svc/port'
-    end
+    return unless args.size == 1
+
+    port_svc = args[0]
+    raise 'No block given' unless block_given?
+
+    work(port_svc, &block) if port_svc.is_a?(Numeric) && block_given?
+    send(port_svc.to_sym, &block) if port_svc.is_a?(String) && block_given?
+    raise 'Bad svc/port'
+  end
+
+  def self.fast(*args, &block)
+    new(*args, workers: 512, connect_timeout: 0.5, &block)
   end
 
   def lock(&block)
