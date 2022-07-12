@@ -3,8 +3,9 @@
 
 require_relative 'lib/stalker'
 
-IRC_PORT = 6667
-
-Stalker.fast(IRC_PORT) do |ip|
-  puts ip
+Stalker.www do
+  port 6667
+  on_result do |ip|
+    puts ip
+  end
 end

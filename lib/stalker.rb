@@ -4,21 +4,25 @@ require 'etc'
 require 'socket'
 require_relative 'gen'
 
+Socket::Option.bool(:INET, :SOCKET, :KEEPALIVE, false)
+Socket::Option.linger(true, 0)
+
 # Netstalking tool
 class Stalker
   # TODO: doc + get services from source
   SERVICES = {
     http: 80,
     ftp: 21,
-    ssh: 22
+    ssh: 22,
+    rtsp: 554
   }.freeze
+
+  attr_accessor :port_num
 
   def initialize(port_svc = nil, connect_timeout: 0.75, workers: 64, &block)
     @connect_timeout = connect_timeout
     @workers_count = workers
     @proc_count = Etc.nprocessors
-    @thr_per_proc = @workers_count / @proc_count
-    warn "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}, ct: #{@connect_timeout}"
     @mutex = Mutex.new
 
     return unless port_svc
@@ -34,12 +38,47 @@ class Stalker
     end
   end
 
-  def self.fast(*args, &block)
-    new(*args, workers: 512, connect_timeout: 0.5, &block)
-  end
-
   def lock(&block)
     @mutex.synchronize(&block)
+  end
+
+  def self.www(&block)
+    raise 'No block given' unless block_given?
+
+    context = new
+    context.instance_eval(&block)
+    context.work(context.port_num)
+  end
+
+  def service(svc)
+    @port_num = SERVICES[svc]
+  end
+
+  def port(p)
+    @port_num = p
+  end
+
+  def profile(spd)
+    @connect_timeout = {
+      fast: 0.33,
+      mid: 0.75,
+      slow: 2,
+      greedy_patient: 1
+    }[spd]
+    @workers_count = {
+      fast: 256,
+      mid: 128,
+      slow: 64,
+      greedy_patient: 256
+    }[spd]
+  end
+
+  def check(&block)
+    @check = block
+  end
+
+  def on_result(&block)
+    @on_result = block
   end
 
   alias sync lock
@@ -51,6 +90,8 @@ class Stalker
   end
 
   def work(port, &block)
+    @thr_per_proc = @workers_count / @proc_count
+    warn "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}, ct: #{@connect_timeout}"
     @proc_count.times do
       Process.fork do
         workers = (1..@thr_per_proc).map do
@@ -72,6 +113,13 @@ class Stalker
     loop do
       ip = Gen.gen_ip
       Socket.tcp(ip, port, connect_timeout: @connect_timeout) do |s|
+        if @check
+          result = @check.call(ip, port, s)
+          next unless result
+          next @on_result.call(result) if @on_result
+        end
+        next @on_result.call(ip, port, s) if @on_result
+
         instance_exec ip, port, s, &block
       end
     rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
