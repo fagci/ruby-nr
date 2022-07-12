@@ -13,22 +13,25 @@ class Stalker
     ssh: 22
   }.freeze
 
-  def initialize(*args, **opts, &block)
-    @connect_timeout = opts.fetch(:connect_timeout, 0.75)
-    @workers_count = opts.fetch(:workers, 64)
+  def initialize(port_svc = nil, connect_timeout: 0.75, workers: 64, &block)
+    @connect_timeout = connect_timeout
+    @workers_count = workers
     @proc_count = Etc.nprocessors
     @thr_per_proc = @workers_count / @proc_count
     warn "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}, ct: #{@connect_timeout}"
     @mutex = Mutex.new
 
-    return unless args.size == 1
+    return unless port_svc
 
-    port_svc = args[0]
     raise 'No block given' unless block_given?
 
-    work(port_svc, &block) if port_svc.is_a?(Numeric) && block_given?
-    send(port_svc.to_sym, &block) if port_svc.is_a?(String) && block_given?
-    raise 'Bad svc/port'
+    if port_svc.is_a?(Numeric) && block_given?
+      work(port_svc, &block)
+    elsif port_svc.is_a?(String) && block_given?
+      send(port_svc.to_sym, &block)
+    else
+      raise 'Bad svc/port'
+    end
   end
 
   def self.fast(*args, &block)
