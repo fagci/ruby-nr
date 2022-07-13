@@ -8,9 +8,7 @@ Stalker.www do
   service :rtsp
   profile :fast
 
-  check do |*args|
-    rtsp_stream(*args)
-  end
+  find(&:rtsp_stream)
 
   on_result do |url|
     puts url

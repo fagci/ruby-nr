@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require './lib/connection'
+
 RTSP_PATHS = %w[
   /1
   /0/1:1/main
@@ -17,17 +19,18 @@ RTSP_PATHS = %w[
 ].freeze
 
 # RTSP plugin to check for most common streams
-class Stalker
-  def rtsp_stream(ip, port, socket)
+class Connection
+  def rtsp_stream()
+    host = "#{@ip}:#{@port}"
     RTSP_PATHS.each_with_index do |path, i|
-      uri = "rtsp://#{ip}:#{port}#{path}"
+      uri = "rtsp://#{host}#{path}"
 
-      socket << "DESCRIBE #{uri} RTSP/1.0\r\n"
-      socket << "Accept: application/sdp\r\n"
-      socket << "CSeq: #{i + 1}\r\n"
-      socket << "User-Agent: Lavf59.16.100\r\n\r\n"
+      @socket << "DESCRIBE #{uri} RTSP/1.0\r\n"
+      @socket << "Accept: application/sdp\r\n"
+      @socket << "CSeq: #{i + 1}\r\n"
+      @socket << "User-Agent: Lavf59.16.100\r\n\r\n"
 
-      resp = socket.recv(1024)
+      resp = @socket.recv(1024)
       break if resp.empty?
 
       status = resp.split(' ', 3)[1]

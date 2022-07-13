@@ -3,6 +3,7 @@
 require 'etc'
 require 'socket'
 require_relative 'gen'
+require_relative 'connection'
 
 Socket::Option.bool(:INET, :SOCKET, :KEEPALIVE, false)
 Socket::Option.linger(true, 0)
@@ -81,6 +82,8 @@ class Stalker
     @on_result = block
   end
 
+  alias find check
+  alias locate check
   alias sync lock
 
   SERVICES.each do |svc, port|
@@ -114,7 +117,8 @@ class Stalker
       ip = Gen.gen_ip
       Socket.tcp(ip, port, connect_timeout: @connect_timeout) do |s|
         if @check
-          result = @check.call(ip, port, s)
+          connection = Connection.new({ ip: ip, port: port, socket: s })
+          result = @check.call(connection)
           next unless result
           next @on_result.call(result) if @on_result
         end
