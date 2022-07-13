@@ -7,7 +7,7 @@ require_relative 'lib/plugins/rtsp'
 Stalker.www do
   service :rtsp
   profile :fast
- 
+
   check do |*args|
     rtsp_stream(*args)
   end

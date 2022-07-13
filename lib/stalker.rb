@@ -54,8 +54,8 @@ class Stalker
     @port_num = SERVICES[svc]
   end
 
-  def port(p)
-    @port_num = p
+  def port(port_num)
+    @port_num = port_num
   end
 
   def profile(spd)
