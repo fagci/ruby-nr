@@ -6,11 +6,11 @@ require_relative 'lib/plugins/rtsp'
 
 Stalker.www do
   service :rtsp
-  profile :fast
+  profile :insane
 
   find(&:rtsp_stream)
 
-  on_result do |url|
-    puts url
+  on_result(true) do
+    puts @ip, @uris
   end
 end

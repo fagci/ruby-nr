@@ -10,12 +10,13 @@ Socket::Option.linger(true, 0)
 
 # Netstalking tool
 class Stalker
-  # TODO: doc + get services from source
-  SERVICES = {
-    http: 80,
-    ftp: 21,
-    ssh: 22,
-    rtsp: 554
+  require_relative 'services'
+  PROFILES = {
+    fast: [0.33, 256],
+    mid: [0.75, 128],
+    slow: [2, 64],
+    greedy_patient: [1, 256],
+    insane: [0.75, 512]
   }.freeze
 
   attr_accessor :port_num
@@ -25,22 +26,8 @@ class Stalker
     @workers_count = workers
     @proc_count = Etc.nprocessors
     @mutex = Mutex.new
-
-    return unless port_svc
-
-    raise 'No block given' unless block_given?
-
-    if port_svc.is_a?(Numeric) && block_given?
-      work(port_svc, &block)
-    elsif port_svc.is_a?(String) && block_given?
-      send(port_svc.to_sym, &block)
-    else
-      raise 'Bad svc/port'
-    end
-  end
-
-  def lock(&block)
-    @mutex.synchronize(&block)
+    @check_handlers = []
+    @result_handlers = []
   end
 
   def self.www(&block)
@@ -51,50 +38,40 @@ class Stalker
     context.work(context.port_num)
   end
 
+  def profile(p)
+    @connect_timeout, @workers_count = PROFILES[p]
+  end
+
   def service(svc)
     @port_num = SERVICES[svc]
+    throw 'No such service' unless @port_num
   end
 
   def port(port_num)
     @port_num = port_num
   end
 
-  def profile(spd)
-    @connect_timeout = {
-      fast: 0.33,
-      mid: 0.75,
-      slow: 2,
-      greedy_patient: 1
-    }[spd]
-    @workers_count = {
-      fast: 256,
-      mid: 128,
-      slow: 64,
-      greedy_patient: 256
-    }[spd]
-  end
-
   def check(&block)
-    @check = block
+    @check_handlers << block
   end
 
-  def on_result(&block)
-    @on_result = block
+  def on_result(locked=false, &block)
+    @result_handlers << [locked, block]
   end
 
   alias find check
   alias locate check
-  alias sync lock
-
-  SERVICES.each do |svc, port|
-    define_method(svc) do |&block|
-      work(port, &block)
-    end
-  end
+  alias request check
+  alias process check
 
   def work(port, &block)
     @thr_per_proc = @workers_count / @proc_count
-    warn "Thr: #{@workers_count}, proc: #{@proc_count}, thr/proc: #{@thr_per_proc}, ct: #{@connect_timeout}"
+    warn <<~EOM
+    Threads: #{@workers_count} Proc: #{@proc_count} Threads/proc: #{@thr_per_proc}
+    Connection timeout: #{@connect_timeout*1000} ms
+    Port: #{port}
+    ----------------------------------------
+    EOM
     @proc_count.times do
       Process.fork do
         workers = (1..@thr_per_proc).map do
@@ -116,20 +93,23 @@ class Stalker
     loop do
       ip = Gen.gen_ip
       Socket.tcp(ip, port, connect_timeout: @connect_timeout) do |s|
-        if @check
-          connection = Connection.new({ ip: ip, port: port, socket: s })
-          result = @check.call(connection)
-          next unless result
-          next @on_result.call(result) if @on_result
+        result = Connection.new({ ip: ip, port: port, socket: s })
+        @check_handlers.each do |block|
+          result = result.instance_eval(&block)
+          break unless result
         end
-        next @on_result.call(ip, port, s) if @on_result
+        next unless result
 
-        instance_exec ip, port, s, &block
+        @result_handlers.each do |locked, block|
+          next result.instance_exec(&block) unless locked
+          
+          @mutex.synchronize do
+            result.instance_exec(&block)
+          end
+        end
       end
-    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET
+    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET, Errno::ENOPROTOOPT
       next
-    rescue Errno::ENOPROTOOPT => e
-      warn "E: #{ip}: #{e}"
     end
   end
 end

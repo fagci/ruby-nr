@@ -3,20 +3,19 @@
 
 require_relative 'lib/stalker'
 
-NNTP_PORT = 119
+Stalker.www do
+  service :nntp
+  profile :fast
 
-stalker = Stalker.new(workers: 512)
+  on_result do
+    greeting = @socket.read(1024).to_s
+    next if greeting.empty?
 
-stalker.work(NNTP_PORT) do |ip, _, s|
-  greeting = s.gets&.chomp.to_s
-  next if greeting.empty?
+    code, = greeting.split.first
+    next unless code == '200'
 
-  code, = greeting.split.first
-  next unless code == '200'
-
-  sync do
-    puts "#{ip}: #{greeting}"
-    s.puts "LIST"
-    puts s.gets
+    puts "#{@ip}: #{greeting}"
+    @socket << "LIST\r\n\r\n"
+    puts @soxket.gets
   end
 end
