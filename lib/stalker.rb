@@ -15,8 +15,6 @@ class Stalker
     insane: [0.75, 512]
   }.freeze
 
-  attr_accessor :port_num
-
   def initialize
     @workers_count = 64
     @connect_timeout = 0.75

@@ -7,8 +7,10 @@ require './lib/rtsp_paths'
 class Connection
   def rtsp_stream
     @uris = []
+    host = @port == 554 ? @ip : "#{ip}:#{port}"
+
     RTSP_PATHS.each_with_index do |path, i|
-      uri = "rtsp://#{@ip}:#{@port}#{path}"
+      uri = "rtsp://#{host}#{path}"
       resp = request(uri, i + 1)
       break if resp.empty?
 
