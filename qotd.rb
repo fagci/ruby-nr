@@ -10,18 +10,18 @@ Stalker.www do
   profile :insane
 
   check do
-    @qotd = []
+    qotd = []
     while (line = @socket.gets)
-      @qotd << line.chomp
+      qotd << line.chomp
     end
-    nil if @qotd.empty?
-    self
+    @qotd = qotd.join(' ').gsub(/\s+/, ' ').strip
+    false if @qotd.empty?
   end
 
   on_result(true) do
     puts @ip
     puts '-' * 40
-    puts @qotd.join(' ').sub(/\s+/, ' ')
+    puts @qotd
     puts '-' * 40
   end
 end

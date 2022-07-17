@@ -14,17 +14,18 @@ class Connection
     @files = ftp.list()
     puts 'Q'
     ftp.quit
-    @files.empty?() ? nil : self
+    !@files.empty?
   rescue Net::FTPPermError, Net::FTPTempError, EOFError, Net::FTPConnectionError, Net::FTPProtoError => e
     # puts "E1: #{e}"
-    nil
+    false
   rescue Net::ReadTimeout, Errno::ENOPROTOOPT => e
     # puts "E: #{e}"
-    nil
+    false
   rescue StandardError => e
     # warn e
-    nil
+    false
   end
+  false
 end
 
 Stalker.www do

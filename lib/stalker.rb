@@ -54,11 +54,12 @@ class Stalker
     @handlers << [locked, block]
   end
 
-  alias on_result add_handler
+  alias check add_handler
   alias find add_handler
   alias locate add_handler
-  alias request add_handler
+  alias on_result add_handler
   alias process add_handler
+  alias request add_handler
 
   def work
     @thr_per_proc = @workers_count / @proc_count
