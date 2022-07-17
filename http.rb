@@ -12,6 +12,6 @@ Stalker.www do
   process(&:get_html_title)
 
   on_result(true) do
-    puts "#{@ip}: #{@title}" if @title
+    puts "#{@ip}: #{@title}"
   end
 end

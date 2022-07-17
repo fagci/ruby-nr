@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+require 'socket'
+Socket::Option.bool(:INET, :SOCKET, :KEEPALIVE, false)
+Socket::Option.linger(true, 0)
+
 # Container for host connection
 class Connection
   attr_reader :ip, :port, :socket

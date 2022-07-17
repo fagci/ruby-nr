@@ -2,7 +2,8 @@
 
 class Connection
   def get_html_title
-    @title = @html.match(/<(title)[^>]*>([^<]+)/i).to_a.last
-    false unless @title
+    matches = @html.match(/<title[^>]*>([^<]+)/i)
+    @title = matches.to_a.last.to_s.strip
+    false if @title.empty?
   end
 end

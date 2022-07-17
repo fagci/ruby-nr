@@ -1,12 +1,8 @@
 # frozen_string_literal: true
 
 require 'etc'
-require 'socket'
 require_relative 'gen'
 require_relative 'connection'
-
-Socket::Option.bool(:INET, :SOCKET, :KEEPALIVE, false)
-Socket::Option.linger(true, 0)
 
 # Netstalking tool
 class Stalker
@@ -92,7 +88,7 @@ class Stalker
 
   def worker
     loop do
-      process_conn(Connection.new(Gen.gen_ip, @port_num, @connect_timeout))
+      process_conn(Connection.new(next_ip, @port_num, @connect_timeout))
     rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET,
            Errno::ENOPROTOOPT
       next
@@ -111,5 +107,9 @@ class Stalker
         break if conn.instance_eval(&block) == false
       end
     end
+  end
+
+  def next_ip
+    Gen.gen_ip
   end
 end
