@@ -100,10 +100,15 @@ class Stalker
 
   def process_conn(conn)
     @handlers.each do |locked, block|
-      @mutex.lock if locked
-      conn = conn.instance_eval(&block)
-      @mutex.unlock if locked
-      break unless conn
+      unless locked
+        break if conn.instance_eval(&block) == false
+
+        next
+      end
+
+      @mutex.synchronize do
+        break if conn.instance_eval(&block) == false
+      end
     end
   end
 end

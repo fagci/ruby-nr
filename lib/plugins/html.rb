@@ -3,6 +3,6 @@
 class Connection
   def get_html_title
     @title = @html.match(/<(title)[^>]*>([^<]+)/i).to_a.last
-    self
+    false unless @title
   end
 end
