@@ -21,13 +21,12 @@ class Stalker
 
   attr_accessor :port_num
 
-  def initialize(port_svc = nil, connect_timeout: 0.75, workers: 64, &block)
-    @connect_timeout = connect_timeout
-    @workers_count = workers
-    @proc_count = Etc.nprocessors
+  def initialize()
+    @workers_count = 64
+    @connect_timeout = 0.75
+    @handlers = []
     @mutex = Mutex.new
-    @check_handlers = []
-    @result_handlers = []
+    @proc_count = Etc.nprocessors
   end
 
   def self.www(&block)
@@ -51,26 +50,23 @@ class Stalker
     @port_num = port_num
   end
 
-  def check(&block)
-    @check_handlers << block
+  def add_handler(locked = false, &block)
+    @handlers << [locked, block]
   end
 
-  def on_result(locked=false, &block)
-    @result_handlers << [locked, block]
-  end
-
-  alias find check
-  alias locate check
-  alias request check
-  alias process check
+  alias on_result add_handler
+  alias find add_handler
+  alias locate add_handler
+  alias request add_handler
+  alias process add_handler
 
   def work(port, &block)
     @thr_per_proc = @workers_count / @proc_count
     warn <<~EOM
-    Threads: #{@workers_count} Proc: #{@proc_count} Threads/proc: #{@thr_per_proc}
-    Connection timeout: #{@connect_timeout*1000} ms
-    Port: #{port}
-    ----------------------------------------
+      Threads: #{@workers_count} Proc: #{@proc_count} Threads/proc: #{@thr_per_proc}
+      Connection timeout: #{@connect_timeout * 1000} ms
+      Port: #{port}
+      ----------------------------------------
     EOM
     @proc_count.times do
       Process.fork do
@@ -89,27 +85,22 @@ class Stalker
 
   private
 
-  def worker(port, &block)
+  def worker(port)
     loop do
       ip = Gen.gen_ip
-      Socket.tcp(ip, port, connect_timeout: @connect_timeout) do |s|
-        result = Connection.new({ ip: ip, port: port, socket: s })
-        @check_handlers.each do |block|
-          result = result.instance_eval(&block)
-          break unless result
-        end
-        next unless result
-
-        @result_handlers.each do |locked, block|
-          next result.instance_exec(&block) unless locked
-          
-          @mutex.synchronize do
-            result.instance_exec(&block)
-          end
-        end
-      end
-    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET, Errno::ENOPROTOOPT
+      process_conn(Connection.new(ip, port, @connect_timeout))
+    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET,
+           Errno::ENOPROTOOPT
       next
+    end
+  end
+
+  def process_conn(conn)
+    @handlers.each do |locked, block|
+      @mutex.lock if locked
+      conn = conn.instance_eval(&block)
+      @mutex.unlock if locked
+      break unless conn
     end
   end
 end

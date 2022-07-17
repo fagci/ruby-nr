@@ -2,9 +2,12 @@
 
 # Container for host connection
 class Connection
-  attr_accessor :ip, :port, :socket
+  attr_reader :ip, :port, :socket
 
-  def initialize(params = {})
-    params.each { |key, value| send "#{key}=", value }
+  def initialize(ip, port, connect_timeout)
+    @ip = ip
+    @port = port
+    @socket = Socket.tcp(ip, port, connect_timeout: connect_timeout)
+    ObjectSpace.define_finalizer(self, proc { @socket.close })
   end
 end
