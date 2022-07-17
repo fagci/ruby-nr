@@ -21,7 +21,7 @@ class Stalker
 
   attr_accessor :port_num
 
-  def initialize()
+  def initialize
     @workers_count = 64
     @connect_timeout = 0.75
     @handlers = []
@@ -34,11 +34,11 @@ class Stalker
 
     context = new
     context.instance_eval(&block)
-    context.work(context.port_num)
+    context.work
   end
 
-  def profile(p)
-    @connect_timeout, @workers_count = PROFILES[p]
+  def profile(prof)
+    @connect_timeout, @workers_count = PROFILES[prof]
   end
 
   def service(svc)
@@ -60,22 +60,17 @@ class Stalker
   alias request add_handler
   alias process add_handler
 
-  def work(port, &block)
+  def work
     @thr_per_proc = @workers_count / @proc_count
-    warn <<~EOM
-      Threads: #{@workers_count} Proc: #{@proc_count} Threads/proc: #{@thr_per_proc}
-      Connection timeout: #{@connect_timeout * 1000} ms
-      Port: #{port}
-      ----------------------------------------
-    EOM
+    warn intro
     @proc_count.times do
       Process.fork do
         workers = (1..@thr_per_proc).map do
-          Thread.new { worker port, &block }
+          Thread.new { worker }
         end
-        workers.map(&:join)
+        workers.each(&:join)
       rescue Interrupt
-        workers.map(&:exit)
+        workers.each(&:exit)
       end
     end
     Process.waitall
@@ -85,10 +80,18 @@ class Stalker
 
   private
 
-  def worker(port)
+  def intro
+    <<~INTRO
+      Threads: #{@workers_count} Proc: #{@proc_count} Threads/proc: #{@thr_per_proc}
+      Connection timeout: #{@connect_timeout * 1000} ms
+      Port: #{@port_num}
+      ----------------------------------------
+    INTRO
+  end
+
+  def worker
     loop do
-      ip = Gen.gen_ip
-      process_conn(Connection.new(ip, port, @connect_timeout))
+      process_conn(Connection.new(Gen.gen_ip, @port_num, @connect_timeout))
     rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET,
            Errno::ENOPROTOOPT
       next
