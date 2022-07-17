@@ -6,7 +6,7 @@ require_relative 'lib/plugins/rtsp'
 
 Stalker.www do
   service :rtsp
-  profile :insane
+  profile :greedy_patient
 
   find(&:rtsp_stream)
 

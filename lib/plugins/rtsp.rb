@@ -1,20 +1,21 @@
 # frozen_string_literal: true
 
 require './lib/connection'
-require './lib/rtsp_paths'
 
 # RTSP plugin to check for most common streams
 class Connection
+  require './lib/rtsp_paths'
+  RTSP_RESPONSE_REG = %r{^RTSP/\d.\d\s+(\d+)\s+}.freeze
+
   def rtsp_stream
     @uris = []
-    host = @port == 554 ? @ip : "#{ip}:#{port}"
 
-    RTSP_PATHS.each_with_index do |path, i|
+    RTSP_PATHS.each.with_index(1) do |path, cseq|
       uri = "rtsp://#{host}#{path}"
-      resp = request(uri, i + 1)
+      resp = request(uri, cseq)
       break if resp.empty?
 
-      matches = resp.match(%r{^RTSP/\d.\d\s+(\d+)\s+})
+      matches = resp.match(RTSP_RESPONSE_REG)
       break unless matches
 
       status = matches[1]
@@ -24,6 +25,10 @@ class Connection
     end
 
     !@uris.empty?
+  end
+
+  def host
+    @host ||= @port == 554 ? @ip : "#{ip}:#{port}"
   end
 
   def request(uri, cseq)

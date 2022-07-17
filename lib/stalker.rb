@@ -44,8 +44,8 @@ class Stalker
     @port_num = port_num
   end
 
-  def add_handler(locked = false, &block)
-    @handlers << [locked, block]
+  def add_handler(sync = false, &block)
+    @handlers << [block, sync]
   end
 
   alias check add_handler
@@ -77,9 +77,9 @@ class Stalker
 
   def intro
     <<~INTRO
-      Threads: #{@workers_count} Proc: #{@proc_count} Threads/proc: #{@thr_per_proc}
-      Connection timeout: #{@connect_timeout * 1000} ms
       Port: #{@port_num}
+      Threads: #{@proc_count * @thr_per_proc}
+      Connection timeout: #{(@connect_timeout * 1000).to_i} ms
       ----------------------------------------
     INTRO
   end
@@ -87,15 +87,17 @@ class Stalker
   def worker
     loop do
       process_conn(Connection.new(next_ip, @port_num, @connect_timeout))
-    rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::ECONNRESET,
-           Errno::ENOPROTOOPT
+    rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
+      next
+    rescue Errno::ECONNRESET, Errno::ENOPROTOOPT => e
+      warn e
       next
     end
   end
 
   def process_conn(conn)
-    @handlers.each do |locked, block|
-      unless locked
+    @handlers.each do |block, sync|
+      unless sync
         break if conn.instance_eval(&block) == false
 
         next
