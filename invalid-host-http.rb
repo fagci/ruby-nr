@@ -12,12 +12,7 @@ Stalker.www do
   port 80
   profile :insane
   log 'invalid-host-500.txt'
-  log_format <<~FMT
-    %{ip}
-    %{body}
-    ---
-    
-  FMT
+  log_format "%{ip}\n%{body}\n---\n"
 
   request do
     http_request_a REQUEST
