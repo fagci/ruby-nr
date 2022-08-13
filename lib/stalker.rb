@@ -78,7 +78,7 @@ class Stalker
       log = @output_file
       fmt = @log_fmt
       warn "Will log @result to #{log.path}"
-      on_result do
+      on_result(true) do
         warn "Log: #{@ip}"
         log.puts(fmt % to_h)
       end
@@ -117,7 +117,7 @@ class Stalker
     rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
       next
     rescue Errno::ECONNRESET, Errno::ENOPROTOOPT => e
-      warn e
+      # warn e
       next
     end
   end
