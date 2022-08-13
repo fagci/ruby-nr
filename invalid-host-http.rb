@@ -6,7 +6,7 @@ require_relative 'lib/plugins/http'
 REQUEST = [
   'GET / HTTP/1.1',
   'Host: \'"'
-]
+].freeze
 
 Stalker.www do
   port 80
