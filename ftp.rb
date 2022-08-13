@@ -31,10 +31,7 @@ end
 Stalker.www do
   service :ftp
   profile :greedy_patient
+  output_format '%{ip} %{files}'
 
   check(&:anonymous_ftp)
-
-  on_result do
-    print @ip, @files
-  end
 end

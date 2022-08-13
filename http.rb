@@ -7,11 +7,8 @@ require_relative 'lib/plugins/html'
 
 Stalker.www do
   service :http
+  output_format '%{ip}: %{title}'
 
   request(&:http_get)
   process(&:get_html_title)
-
-  on_result(true) do
-    puts "#{@ip}: #{@title}"
-  end
 end

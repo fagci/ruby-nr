@@ -10,7 +10,7 @@ REQUEST = [
 
 Stalker.www do
   service :http
-  profile :insane
+  profile :fast
 
   request do
     http_request_a REQUEST
@@ -19,4 +19,5 @@ Stalker.www do
 
   log 'invalid-host-500.txt'
   log_format "%{ip}\n%{body}\n---\n"
+  output_format '%{ip}'
 end

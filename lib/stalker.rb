@@ -22,8 +22,9 @@ class Stalker
     @handlers = []
     @mutex = Mutex.new
     @proc_count = Etc.nprocessors
-    @output_file = nil
+    @log_file = nil
     @log_fmt = '%{ip} %{result}'
+    @output_fmt = nil
   end
 
   def self.www(&block)
@@ -57,11 +58,15 @@ class Stalker
     else
       path = "out/#{filename}"
     end
-    @output_file = File.open(path, 'a')
+    @log_file = File.open(path, 'a')
   end
 
   def log_format(fmt)
     @log_fmt = fmt
+  end
+
+  def output_format(fmt)
+    @output_fmt = fmt
   end
 
   alias output log
@@ -73,16 +78,29 @@ class Stalker
   alias process add_handler
   alias request add_handler
 
-  def work
-    if @output_file
-      log = @output_file
+  def init_log
+    if @log_file
+      log = @log_file
       fmt = @log_fmt
-      warn "Will log @result to #{log.path}"
+      warn "Log file: #{log.path}"
       on_result(true) do
-        warn "Log: #{@ip}"
         log.puts(fmt % to_h)
       end
     end
+  end
+
+  def init_output
+    if @output_fmt
+      fmt = @output_fmt
+      on_result(true) do
+        puts(fmt % to_h)
+      end
+    end
+  end
+
+  def work
+    init_log
+    init_output
     @thr_per_proc = @workers_count / @proc_count
     warn intro
     @proc_count.times do
