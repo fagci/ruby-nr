@@ -27,8 +27,6 @@ class Connection
 
   def get_response
     @html = @socket.read.to_s
-    @lines = @html.lines.map(&:chomp)
-    return if @lines.empty?
 
     resp_io = StringIO.new(@html)
     buf_io = Net::BufferedIO.new(resp_io)

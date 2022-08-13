@@ -10,10 +10,7 @@ Stalker.www do
   profile :insane
 
   check do
-    qotd = []
-    while (line = @socket.gets)
-      qotd << line.chomp
-    end
+    qotd = read_lines()
     @qotd = qotd.join(' ').gsub(/\s+/, ' ').strip
     false if @qotd.empty?
   end

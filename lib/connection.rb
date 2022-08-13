@@ -29,7 +29,11 @@ class Connection
     @socket << str.gsub("\n", "\r\n")
   end
 
-  def readlines
+  def read_lines
     @socket.lines.map(&:chomp)
+  end
+
+  def read(len=nil)
+    @socket.read(len)
   end
 end

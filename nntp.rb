@@ -8,14 +8,14 @@ Stalker.www do
   profile :fast
 
   on_result do
-    greeting = @socket.read(1024).to_s
+    greeting = read_lines()
     next if greeting.empty?
 
-    code, = greeting.split.first
+    code, = greeting.first
     next unless code == '200'
 
-    puts "#{@ip}: #{greeting}"
+    puts "#{@ip}: #{greeting.join("\n")}"
     @socket << "LIST\r\n\r\n"
-    puts @soxket.gets
+    puts @socket.gets
   end
 end
