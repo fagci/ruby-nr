@@ -7,6 +7,7 @@ require_relative 'connection'
 # Netstalking tool
 class Stalker
   require_relative 'services'
+
   PROFILES = {
     fast: [0.33, 256],
     mid: [0.75, 128],
@@ -21,6 +22,8 @@ class Stalker
     @handlers = []
     @mutex = Mutex.new
     @proc_count = Etc.nprocessors
+    @output_file = nil
+    @log_fmt = '%{ip} %{result}'
   end
 
   def self.www(&block)
@@ -48,6 +51,21 @@ class Stalker
     @handlers << [block, sync]
   end
 
+  def log(filename)
+    if filename.include?('/')
+      path = filename
+    else
+      path = "out/#{filename}"
+    end
+    @output_file = File.open(path, 'a')
+  end
+
+  def log_format(fmt)
+    @log_fmt = fmt
+  end
+
+  alias output log
+
   alias check add_handler
   alias find add_handler
   alias locate add_handler
@@ -56,6 +74,18 @@ class Stalker
   alias request add_handler
 
   def work
+    if @output_file
+      log = @output_file
+      fmt = @log_fmt
+      warn "Will log @result to #{log.path}"
+      on_result do
+        warn "Log: #{@ip} #{@result[..30].gsub(/\n/, '\n').gsub(/\r/, '\r')}"
+        hash = instance_variables.map do |var| 
+          [var.to_s[1..-1].to_sym, instance_variable_get(var)]
+        end.to_h
+        log.puts(fmt % hash)
+      end
+    end
     @thr_per_proc = @workers_count / @proc_count
     warn intro
     @proc_count.times do
