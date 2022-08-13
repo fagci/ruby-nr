@@ -3,11 +3,10 @@
 require_relative 'lib/stalker'
 require_relative 'lib/plugins/http'
 
-REQUEST = <<~REQUEST
-GET / HTTP/1.1
-Host: '"
-
-REQUEST
+REQUEST = [
+  'GET / HTTP/1.1',
+  'Host: \'"'
+]
 
 Stalker.www do
   port 80
@@ -21,11 +20,7 @@ Stalker.www do
   FMT
 
   request do
-    puts_n2rn REQUEST
-
-    get_response
-    next false unless @code == 500
-
-    true
+    http_request_a REQUEST
+    @code == 500
   end
 end

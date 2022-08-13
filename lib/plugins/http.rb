@@ -14,6 +14,17 @@ class Connection
     self
   end
 
+  def http_request_a(arr)
+    has_empty_line = false
+    arr.each do |line|
+      @socket << "#{line}\r\n"
+      has_empty_line = true if line.empty?
+    end
+    @socket << "\r\n" unless has_empty_line
+    get_response
+    self
+  end
+
   def get_response
     @html = @socket.read.to_s
     @lines = @html.lines.map(&:chomp)
