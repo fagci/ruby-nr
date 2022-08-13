@@ -79,11 +79,8 @@ class Stalker
       fmt = @log_fmt
       warn "Will log @result to #{log.path}"
       on_result do
-        warn "Log: #{@ip} #{@result[..30].gsub(/\n/, '\n').gsub(/\r/, '\r')}"
-        hash = instance_variables.map do |var| 
-          [var.to_s[1..-1].to_sym, instance_variable_get(var)]
-        end.to_h
-        log.puts(fmt % hash)
+        warn "Log: #{@ip}"
+        log.puts(fmt % to_h)
       end
     end
     @thr_per_proc = @workers_count / @proc_count
