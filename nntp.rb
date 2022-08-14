@@ -15,7 +15,8 @@ Stalker.www do
     next unless code == '200'
 
     puts "#{@ip}: #{greeting.join("\n")}"
-    @socket << "LIST\r\n\r\n"
+    puts_rn('LIST')
+    puts_rn
     puts @socket.gets
   end
 end
