@@ -4,27 +4,35 @@ require 'etc'
 require_relative 'gen'
 require_relative 'connection'
 
+require 'async/io'
+require 'async/await'
+require 'async/semaphore'
+
 # Netstalking tool
 class Stalker
   require_relative 'services'
+  attr_accessor :results_count
 
   PROFILES = {
-    fast: [0.33, 256],
-    mid: [0.75, 128],
-    slow: [2, 64],
-    greedy_patient: [1, 256],
-    insane: [0.75, 512]
+    fast: [0.75, 2048],
+    mid: [1.5, 1024],
+    slow: [2, 256],
+    greedy_patient: [1, 2048],
+    insane: [1.5, 4096]
   }.freeze
 
   def initialize
-    @workers_count = 64
-    @connect_timeout = 0.75
+    @workers_count = 512
+    @connect_timeout = 2
     @handlers = []
     @mutex = Mutex.new
+    @max_open_files = Etc.sysconf(Etc::SC_OPEN_MAX)
     @proc_count = Etc.nprocessors
     @log_file = nil
-    @log_fmt = '%{ip} %{result}'
+    @log_fmt = '%<ip>s %<result>s'
     @output_fmt = nil
+    @results_count = 0
+    @results_max = nil
   end
 
   def self.www(&block)
@@ -53,11 +61,11 @@ class Stalker
   end
 
   def log(filename)
-    if filename.include?('/')
-      path = filename
-    else
-      path = "out/#{filename}"
-    end
+    path = if filename.include?('/')
+             filename
+           else
+             "out/#{filename}"
+           end
     @log_file = File.open(path, 'a')
   end
 
@@ -67,6 +75,15 @@ class Stalker
 
   def output_format(fmt)
     @output_fmt = fmt
+  end
+
+  def max_results(num)
+    @results_max = num
+  end
+
+  def results_max_reached
+    @results_count += 1
+    @results_max && @results_count >= @results_max
   end
 
   alias output log
@@ -101,21 +118,9 @@ class Stalker
   def work
     init_log
     init_output
-    @thr_per_proc = @workers_count / @proc_count
+    @sem = Async::Semaphore.new([@max_open_files, 4096].min)
     warn intro
-    @proc_count.times do
-      Process.fork do
-        workers = (1..@thr_per_proc).map do
-          Thread.new { worker }
-        end
-        workers.each(&:join)
-      rescue Interrupt
-        workers.each(&:exit)
-      end
-    end
-    Process.waitall
-  rescue Interrupt
-    warn 'Exiting'
+    Async { worker }
   end
 
   private
@@ -123,7 +128,7 @@ class Stalker
   def intro
     <<~INTRO
       Port: #{@port_num}
-      Threads: #{@proc_count * @thr_per_proc}
+      Max open files: #{@max_open_files}
       Connection timeout: #{(@connect_timeout * 1000).to_i} ms
       ----------------------------------------
     INTRO
@@ -131,27 +136,32 @@ class Stalker
 
   def worker
     loop do
-      process_conn(Connection.new(next_ip, @port_num, @connect_timeout))
-    rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
-      next
-    rescue Errno::ECONNRESET, Errno::ENOPROTOOPT => e
-      # warn e
-      next
+      @sem.async do |task|
+        process_conn(Connection.new(task, next_ip, @port_num, @connect_timeout))
+      rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
+        next
+      rescue Errno::ECONNRESET, Errno::ENOPROTOOPT => e
+        next
+      rescue Async::TimeoutError
+      end
+    rescue Errno::EMFILE
+      sleep @connect_timeout
+      retry
+    rescue Interrupt
+      break
     end
   end
 
   def process_conn(conn)
-    @handlers.each do |block, sync|
-      unless sync
-        break if conn.instance_eval(&block) == false
-
-        next
-      end
+    passed = @handlers.all? do |block, sync|
+      next conn.instance_eval(&block) != false unless sync
 
       @mutex.synchronize do
-        break if conn.instance_eval(&block) == false
+        conn.instance_eval(&block) != false
       end
     end
+    return unless passed
+    raise Interrupt if results_max_reached
   end
 
   def next_ip
