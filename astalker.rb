@@ -42,9 +42,15 @@ class AStalker
   end
 
   async def start
+    tasks = []
     loop do
-      @sem.async { check }
+      @sem.async  do |task|
+        tasks << task
+        check
+        tasks.delete(task)
+      end
     rescue Interrupt
+      tasks.each(&:stop)
       break
     end
   rescue Interrupt
