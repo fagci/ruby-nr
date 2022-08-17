@@ -6,6 +6,9 @@ require 'async/await'
 require 'async/semaphore'
 
 require './lib/gen'
+require './lib/connection'
+require './lib/plugins/http'
+require './lib/plugins/html'
 
 class AStalker
   include Async::Await
@@ -14,27 +17,33 @@ class AStalker
     @sem = Async::Semaphore.new(1024)
   end
 
-  def process(ip, peer)
-    peer << "GET / HTTP/1.1\r\nHost: #{ip}\r\n\r\n"
-    data = peer.read(1024)
-    return unless data
+  def connect(ip, port)
+    ep = Async::IO::Endpoint.tcp(ip, port)
+    peer = with_timeout(0.75) { ep.connect }
+    return yield Connection.new(ip, port, peer) if peer
+  rescue Async::TimeoutError
+  rescue Errno::ENETUNREACH, Errno::EHOSTUNREACH
+  rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ENOPROTOOPT
+  ensure
+    peer.close if peer
+  end
 
-    puts "#{Time.now} #{ip}"
+  def check
+    connect(Gen.gen_ip, 80) do |conn|
+      return if [
+        conn.http_get,
+        conn.get_html_title
+      ].any? { |v| v == false }
+
+      conn.instance_eval do
+        puts @title
+      end
+    end
   end
 
   async def start
     loop do
-      ip = Gen.gen_ip
-      @sem.async do
-        peer = with_timeout(0.75) { Async::IO::Endpoint.tcp(ip, 80).connect }
-        next unless peer
-
-        process(ip, peer)
-      rescue Errno::ECONNREFUSED, Async::TimeoutError, Errno::ENETUNREACH, Errno::EHOSTUNREACH, Errno::ECONNRESET,
-             Errno::ENOPROTOOPT
-      ensure
-        peer.close if peer
-      end
+      @sem.async { check }
     rescue Interrupt
       break
     end
