@@ -43,9 +43,7 @@ class AStalker
 
   async def start
     loop do
-      @sem.async do
-        check
-      end
+      @sem.async { check }
     rescue Interrupt
       break
     end
