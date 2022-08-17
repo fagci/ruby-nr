@@ -14,7 +14,7 @@ class AStalker
   include Async::Await
 
   def initialize
-    @sem = Async::Semaphore.new(1024)
+    @sem = Async::Semaphore.new(30000)
   end
 
   def connect(ip, port)
@@ -44,22 +44,18 @@ class AStalker
   async def start
     tasks = []
     loop do
-      @sem.async  do |task|
+      @sem.async do |task|
         tasks << task
         check
         tasks.delete(task)
       end
     rescue Interrupt
+      warn "\rStopping #{tasks.size} tasks..."
       tasks.each(&:stop)
       break
     end
-  rescue Interrupt
-    stop
   end
 end
 
-begin
-  s = AStalker.new
-  a = s.start
-rescue Interrupt
-end
+s = AStalker.new
+a = s.start
