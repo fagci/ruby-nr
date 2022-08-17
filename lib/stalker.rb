@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'etc'
 require_relative 'gen'
 require_relative 'connection'
 
@@ -27,8 +26,12 @@ class Stalker
     @connect_timeout = 2
     @handlers = []
     @mutex = Mutex.new
-    @max_open_files = Etc.sysconf(Etc::SC_OPEN_MAX)
-    @proc_count = Etc.nprocessors
+    @max_open_files =
+      if Process.const_defined? :RLIMIT_NOFILE
+        Process.getrlimit(Process::RLIMIT_NOFILE).first
+      else
+        1024
+      end
     @log_file = nil
     @log_fmt = '%<ip>s %<result>s'
     @output_fmt = nil
