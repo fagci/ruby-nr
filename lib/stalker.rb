@@ -96,22 +96,22 @@ class Stalker
   alias request add_handler
 
   def init_log
-    if @log_file
-      log = @log_file
-      fmt = @log_fmt
-      warn "Log file: #{log.path}"
-      on_result(true) do
-        log.puts(fmt % to_h)
-      end
+    return unless @log_file
+
+    log = @log_file
+    fmt = @log_fmt
+    warn "Log file: #{log.path}"
+    on_result(true) do
+      log.puts(fmt % to_h)
     end
   end
 
   def init_output
-    if @output_fmt
-      fmt = @output_fmt
-      on_result(true) do
-        puts(fmt % to_h)
-      end
+    return unless @output_fmt
+
+    fmt = @output_fmt
+    on_result(true) do
+      puts(fmt % to_h)
     end
   end
 
@@ -140,9 +140,10 @@ class Stalker
         process_conn(Connection.new(task, next_ip, @port_num, @connect_timeout))
       rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
         next
-      rescue Errno::ECONNRESET, Errno::ENOPROTOOPT => e
+      rescue Errno::ECONNRESET, Errno::ENOPROTOOPT
         next
       rescue Async::TimeoutError
+        next
       end
     rescue Errno::EMFILE
       sleep @connect_timeout
