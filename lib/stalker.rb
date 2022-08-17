@@ -11,6 +11,7 @@ require 'async/semaphore'
 # Netstalking tool
 class Stalker
   require_relative 'services'
+  include Async::Await
   attr_accessor :results_count
 
   PROFILES = {
@@ -120,7 +121,7 @@ class Stalker
     init_output
     @sem = Async::Semaphore.new([@max_open_files, 4096].min)
     warn intro
-    Async { worker }
+    worker
   end
 
   private
@@ -134,22 +135,32 @@ class Stalker
     INTRO
   end
 
-  def worker
-    loop do
+  async def worker
+    working = true
+    while working
+
       @sem.async do |task|
-        process_conn(Connection.new(task, next_ip, @port_num, @connect_timeout))
-      rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
-        next
-      rescue Errno::ECONNRESET, Errno::ENOPROTOOPT
-        next
-      rescue Async::TimeoutError
-        next
+        ip = next_ip
+        begin
+          with_timeout(@connect_timeout) do
+            Async::IO::Endpoint.tcp(ip, @port).connect do |socket|
+              process_conn(Connection.new(task, ip, socket))
+            end
+          end
+        rescue Errno::EMFILE
+          sleep @connect_timeout
+          retry
+        rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
+          next
+        rescue Errno::ECONNRESET, Errno::ENOPROTOOPT
+          next
+        rescue Async::TimeoutError
+          next
+        rescue Interrupt
+          working = false
+        end
       end
-    rescue Errno::EMFILE
-      sleep @connect_timeout
-      retry
-    rescue Interrupt
-      break
+
     end
   end
 
