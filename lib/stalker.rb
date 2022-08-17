@@ -23,7 +23,7 @@ class Stalker
 
   def initialize
     @workers_count = 512
-    @connect_timeout = 2
+    @connect_timeout = 1
     @handlers = []
     @mutex = Mutex.new
     @max_open_files =
@@ -32,6 +32,7 @@ class Stalker
       else
         1024
       end
+    @limit = [@max_open_files, 256].min
     @log_file = nil
     @log_fmt = '%<ip>s %<result>s'
     @output_fmt = nil
@@ -65,11 +66,12 @@ class Stalker
   end
 
   def log(filename)
-    path = if filename.include?('/')
-             filename
-           else
-             "out/#{filename}"
-           end
+    path =
+      if filename.include?('/')
+        filename
+      else
+        "out/#{filename}"
+      end
     @log_file = File.open(path, 'a')
   end
 
@@ -122,7 +124,7 @@ class Stalker
   def work
     init_log
     init_output
-    @sem = Async::Semaphore.new([@max_open_files, 4096].min)
+    @sem = Async::Semaphore.new(@limit)
     warn intro
     worker
   end
@@ -133,38 +135,33 @@ class Stalker
     <<~INTRO
       Port: #{@port_num}
       Max open files: #{@max_open_files}
+      Limit: #{@limit}
       Connection timeout: #{(@connect_timeout * 1000).to_i} ms
       ----------------------------------------
     INTRO
   end
 
   async def worker
-    working = true
-    while working
-
+    loop do
       @sem.async do |task|
-        ip = next_ip
-        begin
-          with_timeout(@connect_timeout) do
-            Async::IO::Endpoint.tcp(ip, @port).connect do |socket|
-              process_conn(Connection.new(task, ip, socket))
-            end
-          end
-        rescue Errno::EMFILE
-          sleep @connect_timeout
-          retry
-        rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH
-          next
-        rescue Errno::ECONNRESET, Errno::ENOPROTOOPT
-          next
-        rescue Async::TimeoutError
-          next
-        rescue Interrupt
-          working = false
-        end
+        process_ip(next_ip, task)
       end
-
     end
+  end
+
+  def process_ip(ip, task)
+    task.with_timeout(@connect_timeout) do
+      puts ip
+      address = Async::IO::Address.tcp(ip, @port)
+      address.connect { |peer| puts peer }
+    end
+    # process_conn(Connection.new(ip, @port, peer))
+    # rescue Errno::EMFILE => e
+    #   sleep @connect_timeout
+    #   retry
+    # rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH => e
+    # rescue Errno::ECONNRESET, Errno::ENOPROTOOPT => e
+    # rescue Async::TimeoutError => e
   end
 
   def process_conn(conn)
