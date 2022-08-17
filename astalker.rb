@@ -43,12 +43,19 @@ class AStalker
 
   async def start
     loop do
-      @sem.async { check }
+      @sem.async do
+        check
+      end
     rescue Interrupt
       break
     end
+  rescue Interrupt
+    stop
   end
 end
 
-s = AStalker.new
-s.start
+begin
+  s = AStalker.new
+  a = s.start
+rescue Interrupt
+end
